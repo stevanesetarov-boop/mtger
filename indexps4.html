@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>عداد الشاشات - نظام متكامل</title>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #38bdf8;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --border: rgba(255,255,255,0.08);
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warn: #f59e0b;
+    }
+
+    * { box-sizing: border-box; outline: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+    
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 8px;
+      font-size: 13px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      background: rgba(30, 41, 59, 0.95);
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      align-items: center;
+    }
+
+    h1 { margin: 0; font-size: 1rem; color: white; }
+
+    .menu-btn {
+      background: #334155;
+      color: white;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      position: relative;
+      z-index: 201;
+    }
+
+    .clock-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin: 2px 0;
+    }
+
+    .clock {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.1);
+      padding: 4px 12px;
+      border-radius: 50px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    /* القائمة المنسدلة الرئيسية */
+    .header-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: rgba(30, 41, 59, 0.98);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      min-width: 200px;
+      overflow: hidden;
+      margin-top: 4px;
+      animation: fadeIn 0.2s ease;
+    }
+    .header-menu.show { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .menu-item {
+      padding: 10px 15px;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      text-align: right;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item:hover { background: rgba(56, 189, 248, 0.1); color: var(--accent); }
+
+    /* Grid Layout */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+    }
+
+    .screen-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s;
+    }
+
+    .screen-card.active { border-color: var(--accent); box-shadow: 0 0 8px rgba(56, 189, 248, 0.2); }
+    .screen-card.done { border-color: var(--danger); background: rgba(239,68,68,0.05); }
+
+    .card-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+      margin-bottom: 6px; 
+    }
+    .screen-title { font-weight: bold; color: var(--accent); font-size: 0.85rem; }
+
+    .input-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .field label { display: block; font-size: 0.65rem; color: var(--muted); margin-bottom: 2px; }
+    
+    .field input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      color: white;
+      padding: 6px;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    .remaining-display {
+      background: #0f172a;
+      padding: 6px;
+      border-radius: 6px;
+      text-align: center;
+      font-family: monospace;
+      font-size: 1rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .actions {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .btn-start { flex: 2; background: linear-gradient(135deg, var(--accent), #2563eb); color: white; padding: 8px; border-radius: 6px; font-weight: bold; border:none; font-size: 0.8rem;}
+    .btn-add-time { flex: 1; background: #7c3aed; color: white; padding: 8px; border-radius: 6px; border:none; font-size: 0.8rem;}
+    .btn-purchase { flex: 1; background: #334155; color: white; padding: 8px; border-radius: 6px; border:none; font-size: 0.8rem;}
+    
+    .btn:disabled { opacity: 0.5; filter: grayscale(1); }
+
+    .btn-save-screen {
+      width: 100%;
+      background: var(--warn);
+      color: black;
+      font-weight: bold;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      margin-top: auto;
+      display: none;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .screen-card.done .btn-save-screen { display: block; }
+    .screen-card.active .btn-save-screen { display: block; background: #334155; color: white; }
+
+    /* Modals */
+    .dropdown-menu, .add-time-dropdown {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+      width: 85%;
+      max-width: 300px;
+      max-height: 70vh;
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      opacity: 0;
+      transition: all 0.2s ease;
+    }
+
+    .dropdown-menu.show, .add-time-dropdown.show { display: flex; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    .modal-overlay-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(3px); z-index: 999; display: none; }
+    .modal-overlay-bg.show { display: block; }
+
+    .dropdown-header { padding: 10px; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--accent); font-size: 0.9rem; display: flex; justify-content: space-between; background: rgba(0,0,0,0.2); border-radius: 12px 12px 0 0; }
+    .product-list { padding: 8px; overflow-y: auto; flex: 1; }
+
+    .product-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); margin-bottom: 4px; padding: 6px; border-radius: 6px; }
+    .p-info { display: flex; align-items: center; gap: 6px; flex: 1; }
+    .p-name { font-weight: 600; font-size: 0.85rem; }
+    .p-price { font-size: 0.75rem; color: var(--muted); background: rgba(0,0,0,0.3); padding: 1px 4px; border-radius: 3px; }
+
+    .combo-control { display: flex; align-items: center; background: #0f172a; border-radius: 4px; border: 1px solid var(--border); height: 24px; }
+    .combo-btn { width: 24px; border: none; background: transparent; color: white; font-size: 1rem; cursor: pointer; }
+    .combo-value { width: 28px; text-align: center; font-weight: bold; font-size: 0.8rem; border-left: 1px solid var(--border); border-right: 1px solid var(--border); line-height: 24px; }
+
+    .dropdown-footer { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.1); border-radius: 0 0 12px 12px; }
+    .btn-dropdown { flex: 1; padding: 6px; border-radius: 4px; border: none; font-weight: bold; font-size: 0.85rem; cursor: pointer;}
+    .btn-save-cart { background: var(--success); color: black; }
+    .btn-close-cart { background: #475569; color: white; }
+
+    .add-time-dropdown { padding: 12px; }
+    .add-time-field-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .add-time-field-row label { font-size: 0.85rem; color: white; }
+    .add-time-field-row input { width: 70px; padding: 6px; border-radius: 4px; border: 1px solid var(--border); background: #0f172a; color: white; text-align: center; font-size: 0.9rem; }
+    .add-time-buttons { display: flex; gap: 6px; margin-top: 6px; }
+    .btn-add-confirm { background: var(--success); color: black; border: none; padding: 8px; border-radius: 4px; flex: 1; font-weight: bold; font-size: 0.85rem; cursor: pointer;}
+    .btn-cancel { background: #475569; color: white; border: none; padding: 8px; border-radius: 4px; flex: 1; font-weight: bold; font-size: 0.85rem; cursor: pointer;}
+
+    /* Settings & Screen Management Modal */
+    .settings-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: none; justify-content: center; align-items: center; padding: 15px; }
+    .settings-modal.open { display: flex; }
+    .settings-box { background: var(--card-bg); width: 100%; max-width: 350px; border-radius: 12px; padding: 15px; max-height: 80vh; display: flex; flex-direction: column; }
+    .settings-list { flex: 1; overflow-y: auto; margin: 10px 0; }
+    
+    /* Screen List Item Style */
+    .screen-list-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255,255,255,0.05);
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+    }
+    .screen-name { font-weight: bold; color: var(--text); }
+    .btn-delete-screen {
+        background: rgba(239,68,68,0.2);
+        color: var(--danger);
+        border: none;
+        width: 30px;
+        height: 30px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .btn-delete-screen:hover { background: var(--danger); color: white; }
+
+    .modal-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-modal { flex: 1; padding: 8px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+    .btn-add-screen-modal { background: rgba(34,197,94,0.2); color: var(--success); }
+    .btn-save-modal { background: var(--accent); color: #0f172a; }
+
+    /* Table */
+    .table-container { width: 100%; overflow-x: auto; margin-top: 15px; border-radius: 8px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; min-width: 500px; font-size: 0.8rem; }
+    th { padding: 8px; text-align: right; background: rgba(0,0,0,0.3); color: var(--muted); }
+    td { padding: 8px; border-bottom: 1px solid var(--border); }
+    .log-item { display: inline-block; background: rgba(255,255,255,0.05); padding: 2px 5px; border-radius: 3px; margin: 1px; font-size: 0.75rem; }
+
+  </style>
+</head>
+<body>
+
+  <div class="modal-overlay-bg" id="modalBg"></div>
+
+  <div class="app">
+    <div class="top-bar">
+      <div class="header-row">
+        <button class="menu-btn" id="mainMenuBtn">☰ القائمة</button>
+        <h1>عداد الشاشات</h1>
+      </div>
+      
+      <div class="clock-container">
+        <div class="clock" id="digitalClock">00:00:00</div>
+      </div>
+
+      <div class="header-menu" id="mainMenu">
+        <button class="menu-item" id="openSettingsBtn"><span>⚙️</span> إعدادات المنتجات</button>
+        <button class="menu-item" id="openScreenManagerBtn"><span>📺</span> إدارة الشاشات</button>
+        <button class="menu-item" id="clearLogBtn"><span>🗑️</span> مسح السجل</button>
+        <button class="menu-item" id="exportLogBtn"><span>📥</span> تصدير CSV</button>
+        <button class="menu-item" id="backupBtn"><span>📦</span> نسخة احتياطية</button>
+        <button class="menu-item" id="restoreBtn"><span>↩️</span> استعادة بيانات</button>
+      </div>
+      <input type="file" id="restoreFileInput" accept=".xlsx" style="display:none;">
+    </div>
+
+    <div class="grid" id="screenGrid">
+      <!-- سيتم توليد الشاشات هنا -->
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>الشاشة</th>
+            <th>الوقت (التاريخ والساعة)</th>
+            <th>السعر</th>
+            <th>المشتريات</th>
+            <th style="color:var(--success)">الإجمالي</th>
+          </tr>
+        </thead>
+        <tbody id="logTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="settings-modal" id="settingsModal">
+    <div class="settings-box">
+      <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+        <h3 style="margin:0; color:var(--accent); font-size:0.9rem;">المنتجات</h3>
+        <button onclick="document.getElementById('settingsModal').classList.remove('open')" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;">&times;</button>
+      </div>
+      <div class="settings-list" id="settingsList"></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-primary" id="addProductBtn" style="flex:1; background:rgba(34,197,94,0.2); color:var(--success); border:none; padding:6px; border-radius:4px; cursor:pointer;">+ إضافة</button>
+        <button class="btn btn-primary" id="saveSettingsBtn" style="flex:1; background:var(--accent); color:#0f172a; border:none; padding:6px; border-radius:4px; cursor:pointer;">حفظ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen Manager Modal -->
+  <div class="settings-modal" id="screenManagerModal">
+    <div class="settings-box">
+      <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+        <h3 style="margin:0; color:var(--accent); font-size:0.9rem;">إدارة الشاشات</h3>
+        <button onclick="document.getElementById('screenManagerModal').classList.remove('open')" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;">&times;</button>
+      </div>
+      <div class="settings-list" id="screenManagerList">
+          <!-- قائمة الشاشات ستظهر هنا -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn-modal btn-add-screen-modal" id="addScreenModalBtn">+ إضافة شاشة</button>
+        <button class="btn-modal btn-save-modal" id="saveScreensModalBtn">حفظ وإغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_PRODUCTS = [
+      { id: 'p1', name: "بيبسي", price: 5 },
+      { id: 'p2', name: "ماء", price: 2 },
+      { id: 'p3', name: "شيبس", price: 5 },
+      { id: 'p4', name: "ساندوتش", price: 15 },
+      { id: 'p5', name: "قهوة", price: 10 }
+    ];
+
+    function loadData() {
+      try {
+        return {
+          products: JSON.parse(localStorage.getItem('products')) || DEFAULT_PRODUCTS,
+          logs: JSON.parse(localStorage.getItem('logs')) || [],
+          screenCount: parseInt(localStorage.getItem('screenCount')) || 6
+        };
+      } catch (e) { return { products: DEFAULT_PRODUCTS, logs: [], screenCount: 6 }; }
+    }
+
+    let data = loadData();
+    let PRODUCTS = data.products;
+    let logs = data.logs;
+    let screenCount = data.screenCount;
+    
+    // مصفوفة مؤقتة لتعديلات الشاشات قبل الحفظ
+    let tempScreenList = [];
+
+    const screenGrid = document.getElementById('screenGrid');
+    const screens = [];
+    let timerId = null;
+    let isRunning = false;
+    let audioCtx = null;
+    const modalBg = document.getElementById('modalBg');
+    const mainMenu = document.getElementById('mainMenu');
+
+    // قائمة الأدوات
+    document.getElementById('mainMenuBtn').onclick = (e) => {
+      e.stopPropagation();
+      mainMenu.classList.toggle('show');
+    };
+
+    document.addEventListener('click', (e) => {
+      if (!mainMenu.contains(e.target) && e.target !== document.getElementById('mainMenuBtn')) {
+        mainMenu.classList.remove('show');
+      }
+    });
+
+    function beep() {
+      try {
+        if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.connect(g); g.connect(audioCtx.destination);
+        osc.frequency.value = 880;
+        g.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.3);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+      } catch(e){}
+    }
+
+    function updateClock() {
+      document.getElementById('digitalClock').innerText = new Date().toLocaleTimeString('ar-EG', {hour12:true});
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    function generateId() { return 'p' + Date.now() + Math.random().toString(36).substr(2, 5); }
+
+    function toggleModal(show) {
+      if(show) modalBg.classList.add('show');
+      else modalBg.classList.remove('show');
+    }
+
+    // ========== إدارة الشاشات (الواجهة الرئيسية) ==========
+    function initScreens() {
+      screenGrid.innerHTML = '';
+      screens.length = 0;
+      for(let i=1; i<=screenCount; i++) {
+        createScreenCard(i);
+      }
+      renderLogs();
+    }
+
+    function createScreenCard(index) {
+      const div = document.createElement('div');
+      div.className = 'screen-card';
+      div.innerHTML = `
+        <div class="card-header">
+          <span class="screen-title">شاشة ${index}</span>
+        </div>
+        <div class="input-group">
+          <div class="field"><label>دقيقة</label><input type="number" class="inp-dur" placeholder="0"></div>
+          <div class="field"><label>السعر</label><input type="number" class="inp-price" placeholder="0"></div>
+        </div>
+        <div class="remaining-display">00:00:00</div>
+        <div class="actions">
+          <button class="btn btn-start" disabled>تشغيل</button>
+          <button class="btn btn-add-time" disabled>تمديد</button>
+          <button class="btn btn-purchase">طلبات</button>
+          
+          <div class="add-time-dropdown">
+            <div class="add-time-field-row">
+              <label>وقت</label>
+              <input type="number" class="add-time-input" placeholder="0">
+            </div>
+            <div class="add-time-field-row">
+              <label>سعر</label>
+              <input type="number" class="add-price-input" placeholder="0">
+            </div>
+            <div class="add-time-buttons">
+              <button class="btn-add-confirm" disabled>إضافة</button>
+              <button class="btn-cancel">إغلاق</button>
+            </div>
+          </div>
+          
+          <div class="dropdown-menu">
+            <div class="dropdown-header">
+              <span>الطلبات</span>
+              <span class="total-badge">0</span>
+            </div>
+            <div class="product-list"></div>
+            <div class="dropdown-footer">
+              <button class="btn-dropdown btn-save-cart">حفظ</button>
+              <button class="btn-dropdown btn-close-cart">إغلاق</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn-save-screen">حفظ ونافذة جديدة</button>
+      `;
+      
+      screenGrid.appendChild(div);
+      
+      const screenObj = {
+        el: div, index: index, dur: 0, elapsed: 0, active: false, done: false,
+        cart: {}, total: 0, basePrice: 0, startTime: null, endTime: null
+      };
+      screens.push(screenObj);
+      setupScreenEvents(screenObj);
+    }
+
+    // ========== إدارة الشاشات (القائمة المنبثقة) ==========
+    
+    // فتح قائمة إدارة الشاشات
+    document.getElementById('openScreenManagerBtn').onclick = () => {
+        mainMenu.classList.remove('show');
+        // إنشاء قائمة مؤقتة تحتوي على أرقام الشاشات الحالية
+        tempScreenList = [];
+        for(let i=1; i<=screenCount; i++) {
+            tempScreenList.push(i);
+        }
+        renderScreenManagerList();
+        document.getElementById('screenManagerModal').classList.add('open');
+    };
+
+    // عرض قائمة الشاشات في النافذة
+    function renderScreenManagerList() {
+        const listContainer = document.getElementById('screenManagerList');
+        listContainer.innerHTML = '';
+        
+        tempScreenList.forEach((num, idx) => {
+            const item = document.createElement('div');
+            item.className = 'screen-list-item';
+            item.innerHTML = `
+                <span class="screen-name">شاشة ${num}</span>
+                <button class="btn-delete-screen" onclick="removeScreenFromTemp(${idx})">🗑️</button>
+            `;
+            listContainer.appendChild(item);
+        });
+    }
+
+    // حذف شاشة من القائمة المؤقتة
+    window.removeScreenFromTemp = function(index) {
+        if(tempScreenList.length > 1) {
+            tempScreenList.splice(index, 1);
+            renderScreenManagerList();
+        } else {
+            alert("يجب أن تبقى شاشة واحدة على الأقل!");
+        }
+    };
+
+    // إضافة شاشة للقائمة المؤقتة
+    document.getElementById('addScreenModalBtn').onclick = () => {
+        const nextNum = tempScreenList.length > 0 ? Math.max(...tempScreenList) + 1 : 1;
+        tempScreenList.push(nextNum);
+        renderScreenManagerList();
+        // التمرير للأسفل
+        const list = document.getElementById('screenManagerList');
+        setTimeout(() => list.scrollTop = list.scrollHeight, 50);
+    };
+
+    // حفظ التعديلات وتطبيقها على الواجهة الرئيسية
+    document.getElementById('saveScreensModalBtn').onclick = () => {
+        // 1. تحديث العدد الرئيسي بناءً على طول القائمة المؤقتة
+        screenCount = tempScreenList.length;
+        
+        // 2. الحفظ في الذاكرة
+        localStorage.setItem('screenCount', screenCount);
+        
+        // 3. إغلاق النافذة
+        document.getElementById('screenManagerModal').classList.remove('open');
+        
+        // 4. إعادة رسم الواجهة بالكامل (هذا هو الحل الجذري)
+        initScreens(); 
+    };
+
+
+    function setupScreenEvents(s) {
+      const inpDur = s.el.querySelector('.inp-dur');
+      const inpPrice = s.el.querySelector('.inp-price');
+      const btnStart = s.el.querySelector('.btn-start');
+      const btnAddTime = s.el.querySelector('.btn-add-time');
+      const btnPurch = s.el.querySelector('.btn-purchase');
+      const btnSaveScreen = s.el.querySelector('.btn-save-screen');
+      const addTimeDropdown = s.el.querySelector('.add-time-dropdown');
+      const dropdown = s.el.querySelector('.dropdown-menu');
+      const prodList = dropdown.querySelector('.product-list');
+      const totalBadge = dropdown.querySelector('.total-badge');
+      
+      const addTimeInput = addTimeDropdown.querySelector('.add-time-input');
+      const addPriceInput = addTimeDropdown.querySelector('.add-price-input');
+      const addTimeConfirmBtn = addTimeDropdown.querySelector('.btn-add-confirm');
+      const btnCancelTime = addTimeDropdown.querySelector('.btn-cancel');
+
+      const renderProducts = () => {
+        prodList.innerHTML = PRODUCTS.map(p => `
+          <div class="product-row" data-id="${p.id}">
+            <div class="p-info"><span class="p-name">${p.name}</span><span class="p-price">${p.price}</span></div>
+            <div class="combo-control">
+              <button class="combo-btn dec">-</button>
+              <div class="combo-value">${s.cart[p.id] || 0}</div>
+              <button class="combo-btn inc">+</button>
+            </div>
+          </div>`).join('');
+      };
+      renderProducts();
+
+      dropdown.querySelector('.btn-save-cart').onclick = () => { dropdown.classList.remove('show'); toggleModal(false); };
+      dropdown.querySelector('.btn-close-cart').onclick = () => { dropdown.classList.remove('show'); toggleModal(false); };
+      
+      prodList.addEventListener('click', (e) => {
+        const btn = e.target.closest('.combo-btn');
+        if(!btn) return;
+        const row = btn.closest('.product-row');
+        const pid = row.dataset.id;
+        let qty = parseInt(row.querySelector('.combo-value').innerText);
+        if(btn.classList.contains('inc')) qty++;
+        else if(btn.classList.contains('dec') && qty > 0) qty--;
+        
+        row.querySelector('.combo-value').innerText = qty;
+        if(qty > 0) s.cart[pid] = qty; else delete s.cart[pid];
+        
+        s.total = 0;
+        for(const [id, q] of Object.entries(s.cart)) {
+          const p = PRODUCTS.find(x => x.id === id);
+          if(p) s.total += p.price * q;
+        }
+        totalBadge.innerText = s.total;
+      });
+
+      const checkInputs = () => {
+        const tVal = parseFloat(addTimeInput.value);
+        const pVal = parseFloat(addPriceInput.value);
+        const isValid = (tVal > 0) || (pVal > 0);
+        addTimeConfirmBtn.disabled = !isValid;
+      };
+      addTimeInput.oninput = checkInputs;
+      addPriceInput.oninput = checkInputs;
+
+      btnAddTime.onclick = (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.dropdown-menu, .add-time-dropdown').forEach(d => d.classList.remove('show'));
+        addTimeDropdown.classList.add('show');
+        toggleModal(true);
+      };
+
+      addTimeConfirmBtn.onclick = () => {
+        const t = parseFloat(addTimeInput.value) || 0;
+        const p = parseFloat(addPriceInput.value) || 0;
+        
+        if(t > 0) {
+          inpDur.value = (parseFloat(inpDur.value)||0) + t;
+          s.dur += t * 60;
+          if(s.done) {
+            s.done = false; s.active = true; s.elapsed = 0; s.startTime = new Date();
+            s.el.classList.remove('done'); s.el.classList.add('active');
+            if(!isRunning) { isRunning = true; timerId = setInterval(tick, 1000); }
+          }
+        }
+        if(p > 0) {
+          inpPrice.value = (parseFloat(inpPrice.value)||0) + p;
+          s.basePrice += p;
+        }
+        addTimeInput.value = ''; addPriceInput.value = '';
+        addTimeDropdown.classList.remove('show');
+        toggleModal(false);
+      };
+
+      btnCancelTime.onclick = () => {
+        addTimeInput.value = ''; addPriceInput.value = '';
+        addTimeDropdown.classList.remove('show');
+        toggleModal(false);
+      };
+
+      const checkValid = () => {
+        const d = parseFloat(inpDur.value);
+        const p = parseFloat(inpPrice.value);
+        if (d > 0 && p > 0) {
+            btnStart.disabled = false;
+        } else {
+            btnStart.disabled = true;
+        }
+        s.basePrice = p || 0;
+        btnAddTime.disabled = (!s.active && !s.done);
+      };
+
+      inpDur.addEventListener('input', checkValid);
+      inpPrice.addEventListener('input', checkValid);
+
+      btnPurch.onclick = (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.dropdown-menu, .add-time-dropdown').forEach(d => d.classList.remove('show'));
+        dropdown.classList.add('show');
+        toggleModal(true);
+      };
+
+      btnStart.onclick = () => {
+        s.dur = parseFloat(inpDur.value) * 60;
+        s.elapsed = 0; s.active = true; s.done = false;
+        s.startTime = new Date();
+        s.el.classList.add('active');
+        btnStart.disabled = true; btnAddTime.disabled = false;
+        if(!isRunning) { isRunning = true; timerId = setInterval(tick, 1000); }
+      };
+
+      btnSaveScreen.onclick = () => saveScreenLog(s);
+    }
+
+    modalBg.onclick = () => {
+      document.querySelectorAll('.dropdown-menu, .add-time-dropdown').forEach(d => d.classList.remove('show'));
+      toggleModal(false);
+    };
+
+    function tick() {
+      let anyActive = false;
+      screens.forEach(s => {
+        if(!s.active || s.done) return;
+        anyActive = true;
+        s.elapsed++;
+        const rem = Math.max(0, s.dur - s.elapsed);
+        const h = String(Math.floor(rem/3600)).padStart(2,'0');
+        const m = String(Math.floor((rem%3600)/60)).padStart(2,'0');
+        const sec = String(rem%60).padStart(2,'0');
+        s.el.querySelector('.remaining-display').innerText = `${h}:${m}:${sec}`;
+        
+        if(s.elapsed >= s.dur) {
+          s.done = true; s.active = false; s.endTime = new Date();
+          s.el.classList.remove('active'); s.el.classList.add('done');
+          beep();
+        }
+      });
+      if(!anyActive) { isRunning = false; clearInterval(timerId); }
+    }
+
+    function saveScreenLog(s) {
+      if(!s.endTime) s.endTime = new Date();
+      const grandTotal = s.basePrice + s.total;
+      let details = [];
+      for(const [pid, qty] of Object.entries(s.cart)) {
+        const p = PRODUCTS.find(x => x.id === pid);
+        if(p) details.push({name: p.name, qty, price: p.price, total: p.price*qty});
+      }
+      
+      const timeOptions = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true };
+      
+      logs.unshift({
+        id: Date.now(), screen: `شاشة ${s.index}`,
+        startTime: s.startTime.toLocaleString('ar-EG', timeOptions),
+        endTime: s.endTime.toLocaleString('ar-EG', timeOptions),
+        basePrice: s.basePrice, purchaseTotal: s.total, grandTotal, details
+      });
+      localStorage.setItem('logs', JSON.stringify(logs));
+      renderLogs();
+      
+      // فتح نافذة جديدة
+      const logWindow = window.open('', '_blank');
+      let logHtml = `<html dir="rtl"><head><title>سجل الجلسات</title><style>body{font-family:sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:8px;text-align:right;}th{background:#f2f2f2;}</style></head><body><h2>سجل الجلسات المحفوظة</h2><table><tr><th>الشاشة</th><th>البداية</th><th>النهاية</th><th>السعر</th><th>المشتريات</th><th>الإجمالي</th></tr>`;
+      logs.forEach(l => {
+         let items = l.details.map(d=>`${d.name}(${d.qty})`).join(', ');
+         logHtml += `<tr><td>${l.screen}</td><td>${l.startTime}</td><td>${l.endTime}</td><td>${l.basePrice}</td><td>${items}</td><td>${l.grandTotal}</td></tr>`;
+      });
+      logHtml += `</table></body></html>`;
+      logWindow.document.write(logHtml);
+      
+      s.active=false; s.done=false; s.elapsed=0; s.dur=0; s.cart={}; s.total=0; s.basePrice=0;
+      s.el.classList.remove('active','done');
+      s.el.querySelector('.inp-dur').value=''; s.el.querySelector('.inp-price').value='';
+      s.el.querySelector('.remaining-display').innerText='00:00:00';
+      s.el.querySelector('.btn-start').disabled=true;
+      s.el.querySelector('.btn-add-time').disabled=true;
+      s.el.querySelector('.btn-save-screen').style.display='none';
+      renderProductsInScreen(s);
+    }
+
+    function renderProductsInScreen(s) {
+       const list = s.el.querySelector('.product-list');
+       list.innerHTML = PRODUCTS.map(p => `
+          <div class="product-row" data-id="${p.id}">
+            <div class="p-info"><span class="p-name">${p.name}</span><span class="p-price">${p.price}</span></div>
+            <div class="combo-control">
+              <button class="combo-btn dec">-</button>
+              <div class="combo-value">0</div>
+              <button class="combo-btn inc">+</button>
+            </div>
+          </div>`).join('');
+       s.el.querySelector('.total-badge').innerText = '0';
+    }
+
+    function renderLogs() {
+      const tbody = document.getElementById('logTableBody');
+      tbody.innerHTML = '';
+      logs.forEach(log => {
+        let detHtml = log.details.map(d => `<span class="log-item">${d.name}(${d.qty})</span>`).join('');
+        tbody.innerHTML += `
+          <tr>
+            <td>${log.screen}</td>
+            <td style="font-size:0.75rem; direction:ltr; text-align:right;">
+               <div>${log.startTime}</div>
+               <div style="color:var(--muted)">↓</div>
+               <div>${log.endTime}</div>
+            </td>
+            <td>${log.basePrice}</td>
+            <td>${detHtml || '-'}</td>
+            <td style="color:var(--success); font-weight:bold;">${log.grandTotal}</td>
+          </tr>`;
+      });
+    }
+
+    const modal = document.getElementById('settingsModal');
+    const settingsList = document.getElementById('settingsList');
+    
+    document.getElementById('openSettingsBtn').onclick = () => {
+      mainMenu.classList.remove('show');
+      settingsList.innerHTML = PRODUCTS.map(p => `
+        <div class="settings-item">
+          <input type="text" value="${p.name}" class="s-name">
+          <input type="number" value="${p.price}" class="s-price">
+          <button class="btn-delete" onclick="this.parentElement.remove()">🗑️</button>
+        </div>`).join('');
+      modal.classList.add('open');
+    };
+
+    document.getElementById('addProductBtn').onclick = () => {
+      const item = document.createElement('div');
+      item.className = 'settings-item';
+      item.innerHTML = `<input type="text" class="s-name" placeholder="اسم"><input type="number" class="s-price" placeholder="0"><button class="btn-delete" onclick="this.parentElement.remove()">🗑️</button>`;
+      settingsList.appendChild(item);
+    };
+
+    document.getElementById('saveSettingsBtn').onclick = () => {
+      const newProds = [];
+      settingsList.querySelectorAll('.settings-item').forEach(item => {
+        const n = item.querySelector('.s-name').value;
+        const p = Number(item.querySelector('.s-price').value);
+        if(n && p>=0) newProds.push({id: generateId(), name:n, price:p});
+      });
+      if(newProds.length) {
+        PRODUCTS = newProds;
+        localStorage.setItem('products', JSON.stringify(PRODUCTS));
+        screens.forEach(s => renderProductsInScreen(s));
+        modal.classList.remove('open');
+      }
+    };
+
+    document.getElementById('clearLogBtn').onclick = () => {
+      mainMenu.classList.remove('show');
+      if(confirm('مسح السجل؟')) { logs=[]; localStorage.setItem('logs','[]'); renderLogs(); }
+    };
+
+    document.getElementById('exportLogBtn').onclick = () => {
+      mainMenu.classList.remove('show');
+      if(!logs.length) return alert('لا يوجد سجل');
+      let csv = 'data:text/csv;charset=utf-8,\ufeffالشاشة,البداية,النهاية,السعر,المشتريات,الإجمالي\n';
+      logs.forEach(l => {
+        csv += `${l.screen},${l.startTime},${l.endTime},${l.basePrice},"${l.details.map(d=>d.name+'('+d.qty+')').join(',')}",${l.grandTotal}\n`;
+      });
+      const link = document.createElement('a');
+      link.href = encodeURI(csv);
+      link.download = 'log.csv';
+      link.click();
+    };
+
+    document.getElementById('backupBtn').onclick = () => {
+      mainMenu.classList.remove('show');
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(logs.map(l=>({screen:l.screen, start:l.startTime, end:l.endTime, total:l.grandTotal}))), "Logs");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(PRODUCTS.map(p=>({name:p.name, price:p.price}))), "Products");
+      XLSX.writeFile(wb, `Backup_${new Date().toISOString().slice(0,10)}.xlsx`);
+    };
+
+    const restoreInput = document.getElementById('restoreFileInput');
+    document.getElementById('restoreBtn').onclick = () => {
+      mainMenu.classList.remove('show');
+      restoreInput.click();
+    };
+    
+    restoreInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const wb = XLSX.read(evt.target.result, {type:'array'});
+        if(wb.Sheets["Products"]) {
+          const data = XLSX.utils.sheet_to_json(wb.Sheets["Products"]);
+          PRODUCTS = data.map(r=>({id:generateId(), name:r.name, price:r.price}));
+          localStorage.setItem('products', JSON.stringify(PRODUCTS));
+          screens.forEach(s => renderProductsInScreen(s));
+          alert('تم الاستعادة!');
+          location.reload();
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    };
+
+    initScreens();
+  </script>
+</body>
+</html>
